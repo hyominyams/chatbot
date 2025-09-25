@@ -81,7 +81,7 @@ export async function sendUserMessage(sessionId: string, threadId: string, conte
   return handleResponse<{ content: string }>(chatRes);
 }
 
-export async function getContext(threadId: string, limit = 12) {
+export async function getContext(threadId: string, limit = 32) {
   const params = new URLSearchParams({ threadId, n: String(limit) });
   const res = await fetch(`/api/context?${params.toString()}`, { cache: "no-store" });
   return handleResponse<{ summary: string; recent: ChatMessage[] }>(res);
@@ -95,3 +95,4 @@ export async function summarizeThread(threadId: string) {
   });
   return handleResponse<{ ok: boolean }>(res);
 }
+

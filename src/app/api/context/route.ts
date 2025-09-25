@@ -1,7 +1,7 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-const DEFAULT_LIMIT = 12;
+const DEFAULT_LIMIT = 32;
 
 export async function GET(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams;
@@ -39,3 +39,4 @@ export async function GET(req: NextRequest) {
     recent: (messages ?? []).reverse(),
   });
 }
+

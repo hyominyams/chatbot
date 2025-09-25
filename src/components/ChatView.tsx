@@ -52,23 +52,22 @@ export default function ChatView({ threadId }: ChatViewProps) {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (!raw) {
-        router.replace("/");
+        router.replace("/login");
         return;
       }
       const stored = JSON.parse(raw) as StoredSession;
       if (!stored?.authed || !stored.sessionId) {
-        router.replace("/");
+        router.replace("/login");
         return;
       }
       setSession(stored);
     } catch (err) {
       console.error(err);
-      router.replace("/");
+      router.replace("/login");
     }
   }, [router]);
 
   const fetchMessages = useCallback(async () => {
-    if (!threadId) return;
     setError(null);
     try {
       const { messages: data } = await getMessages(threadId, 200);
@@ -170,6 +169,11 @@ export default function ChatView({ threadId }: ChatViewProps) {
     }
   };
 
+  const handleLogout = () => {
+    window.localStorage.removeItem(STORAGE_KEY);
+    router.replace("/login");
+  };
+
   const assistantMessages = useMemo(
     () => messages.filter((msg) => msg.role === "assistant"),
     [messages]
@@ -188,23 +192,34 @@ export default function ChatView({ threadId }: ChatViewProps) {
       <header className="border-b border-slate-200 bg-white px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold text-slate-900">{threadTitle}</h1>
+            <h1 className="flex items-center gap-2 text-lg font-bold text-blue-600">
+              💬 {threadTitle}
+            </h1>
             <p className="text-xs text-slate-500">{session.klass} · {session.nick}</p>
           </div>
-          <button
-            type="button"
-            onClick={handleSummarize}
-            disabled={summarizing}
-            className="rounded-lg bg-blue-400 px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {summarizing ? "요약 중..." : "요약 갱신"}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleSummarize}
+              disabled={summarizing}
+              className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              🤖 {summarizing ? "요약 중" : "요약 갱신"}
+            </button>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm transition-colors hover:bg-slate-100"
+            >
+              🔓 로그아웃
+            </button>
+          </div>
         </div>
       </header>
 
-      <div className="flex flex-1 flex-col gap-4 overflow-hidden bg-slate-50 p-6">
+      <div className="flex flex-1 flex-col gap-4 overflow-hidden bg-blue-50/60 p-6">
         <section className="flex min-h-0 flex-1 flex-col gap-4">
-          <div className="flex-1 space-y-4 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+          <div className="flex-1 space-y-4 overflow-y-auto rounded-2xl border border-blue-100 bg-blue-50/60 p-4 shadow-sm">
             {initializing && <p className="text-sm text-slate-500">불러오는 중...</p>}
             {error && <p className="text-sm text-red-500">{error}</p>}
             {messages.length === 0 && !initializing && !error && (
@@ -213,16 +228,18 @@ export default function ChatView({ threadId }: ChatViewProps) {
             {messages.map((msg) => (
               <article
                 key={msg.id}
-                className={`max-w-xl rounded-lg border px-3 py-2 shadow-xs ${
+                className={`max-w-[70%] rounded-xl px-4 py-2 shadow-sm transition-all ${
                   msg.role === "assistant"
-                    ? "mr-auto bg-indigo-50 border-indigo-100 text-left"
-                    : "ml-auto bg-white border-slate-200 text-right"
+                    ? "flex flex-col gap-1 self-start border border-blue-100 bg-white text-left"
+                    : "flex flex-col gap-1 self-end border border-blue-200 bg-blue-100 text-right"
                 }`}
               >
-                <div className="mb-1 text-xs font-semibold text-slate-500">
-                  {msg.role === "assistant" ? "어시스턴트" : msg.role === "system" ? "시스템" : "학생"}
+                <span className="text-xs font-medium text-blue-500">
+                  {msg.role === "assistant" ? "🤖 어시스턴트" : msg.role === "system" ? "📎 시스템" : "😀 학생"}
+                </span>
+                <div className="text-[15px] leading-relaxed text-slate-700">
+                  <Markdown>{msg.content}</Markdown>
                 </div>
-                <Markdown>{msg.content}</Markdown>
               </article>
             ))}
             <div ref={bottomRef} />
@@ -235,23 +252,23 @@ export default function ChatView({ threadId }: ChatViewProps) {
               event.preventDefault();
               void handleSend();
             }}
-            className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs"
+            className="sticky bottom-0 flex flex-col gap-3 rounded-2xl border border-blue-100 bg-white/90 p-4 shadow-sm"
           >
             <textarea
               value={input}
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="메시지를 입력하세요"
-              className="min-h-[120px] max-h-64 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              placeholder="하고 싶은 말을 입력하세요 (Enter: 전송 / Shift+Enter: 줄바꿈)"
+              className="min-h-[120px] max-h-64 w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-400 outline-hidden"
               disabled={loading}
             />
             <div className="flex justify-end">
               <button
                 type="submit"
                 disabled={loading}
-                className="rounded-lg bg-blue-400 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-70"
+                className="flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white shadow transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {loading ? "전송 중..." : "보내기"}
+                📩 {loading ? "전송 중..." : "전송"}
               </button>
             </div>
           </form>

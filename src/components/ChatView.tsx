@@ -206,7 +206,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
       </header>
 
       <main className="flex flex-col overflow-hidden">
-        <div className="mx-auto w-full max-w-3xl flex flex-col gap-3 flex-1 overflow-y-auto px-4 py-6">
+        <div className="mx-auto w-full max-w-3xl flex flex-col gap-4 flex-1 overflow-y-auto px-4 py-6">
           {initializing && <p className="text-sm text-slate-500">불러오는 중...</p>}
           {error && <p className="text-sm text-red-500">{error}</p>}
           {messages.length === 0 && !initializing && !error && (
@@ -258,7 +258,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
             event.preventDefault();
             void handleSend();
           }}
-          className="mx-auto flex w-full max-w-3xl items-end gap-3"
+          className="mx-auto flex w-full max-w-3xl items-end gap-4"
         >
           <textarea
             value={input}

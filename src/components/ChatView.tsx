@@ -109,15 +109,6 @@ export default function ChatView({ threadId }: ChatViewProps) {
 
     const content = input.trim();
     setInput("");
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        role: "user",
-        content,
-        created_at: new Date().toISOString(),
-      },
-    ]);
 
     setLoading(true);
     try {
@@ -183,7 +174,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
   }
 
   return (
-    <div className="grid h-full grid-rows-[auto_1fr_auto] bg-blue-50/60">
+    <div className="grid h-full grid-rows-[auto_1fr_auto] bg-blue-50/60 font-[\'Noto Sans KR\',_sans-serif]">
       <header className="border-b border-blue-100 bg-white px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
@@ -204,7 +195,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
       </header>
 
       <main className="flex flex-col overflow-hidden">
-        <div className="flex-1 space-y-4 overflow-y-auto px-6 py-6">
+        <div className="flex flex-col gap-4 flex-1 overflow-y-auto px-6 py-6">
           {initializing && <p className="text-sm text-slate-500">불러오는 중...</p>}
           {error && <p className="text-sm text-red-500">{error}</p>}
           {messages.length === 0 && !initializing && !error && (

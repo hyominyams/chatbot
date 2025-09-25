@@ -1,0 +1,8 @@
+﻿export async function sendUserMessage(sessionId: string, threadId: string, content: string) {
+  const chatRes = await fetch(`/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sessionId, threadId, message: content }),
+  });
+  return handleResponse<{ content: string }>(chatRes);
+}

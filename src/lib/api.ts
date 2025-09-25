@@ -66,13 +66,6 @@ export async function getMessages(threadId: string, limit = 50) {
 }
 
 export async function sendUserMessage(sessionId: string, threadId: string, content: string) {
-  const saveUser = await fetch(`/api/messages`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ sessionId, threadId, role: "user", content }),
-  });
-  await handleResponse<{ ok: boolean }>(saveUser);
-
   const chatRes = await fetch(`/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -95,4 +88,3 @@ export async function summarizeThread(threadId: string) {
   });
   return handleResponse<{ ok: boolean }>(res);
 }
-

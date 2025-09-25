@@ -169,11 +169,6 @@ export default function ChatView({ threadId }: ChatViewProps) {
     }
   };
 
-  const handleLogout = () => {
-    window.localStorage.removeItem(STORAGE_KEY);
-    router.replace("/login");
-  };
-
   const assistantMessages = useMemo(
     () => messages.filter((msg) => msg.role === "assistant"),
     [messages]
@@ -188,8 +183,8 @@ export default function ChatView({ threadId }: ChatViewProps) {
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="border-b border-slate-200 bg-white px-6 py-4">
+    <div className="grid h-full grid-rows-[auto_1fr_auto] bg-blue-50/60">
+      <header className="border-b border-blue-100 bg-white px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="flex items-center gap-2 text-lg font-bold text-blue-600">
@@ -197,83 +192,77 @@ export default function ChatView({ threadId }: ChatViewProps) {
             </h1>
             <p className="text-xs text-slate-500">{session.klass} · {session.nick}</p>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleSummarize}
-              disabled={summarizing}
-              className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              🤖 {summarizing ? "요약 중" : "요약 갱신"}
-            </button>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm transition-colors hover:bg-slate-100"
-            >
-              🔓 로그아웃
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleSummarize}
+            disabled={summarizing}
+            className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            🤖 {summarizing ? "요약 중" : "요약 갱신"}
+          </button>
         </div>
       </header>
 
-      <div className="flex flex-1 flex-col gap-4 overflow-hidden bg-blue-50/60 p-6">
-        <section className="flex min-h-0 flex-1 flex-col gap-4">
-          <div className="flex-1 space-y-4 overflow-y-auto rounded-2xl border border-blue-100 bg-blue-50/60 p-4 shadow-sm">
-            {initializing && <p className="text-sm text-slate-500">불러오는 중...</p>}
-            {error && <p className="text-sm text-red-500">{error}</p>}
-            {messages.length === 0 && !initializing && !error && (
-              <p className="text-sm text-slate-500">대화를 시작해 보세요.</p>
-            )}
-            {messages.map((msg) => (
+      <main className="flex flex-col overflow-hidden">
+        <div className="flex-1 space-y-4 overflow-y-auto px-6 py-6">
+          {initializing && <p className="text-sm text-slate-500">불러오는 중...</p>}
+          {error && <p className="text-sm text-red-500">{error}</p>}
+          {messages.length === 0 && !initializing && !error && (
+            <p className="text-sm text-slate-500">대화를 시작해 보세요.</p>
+          )}
+          {messages.map((msg) => {
+            const isAssistant = msg.role === "assistant";
+            return (
               <article
                 key={msg.id}
-                className={`max-w-[70%] rounded-xl px-4 py-2 shadow-sm transition-all ${
-                  msg.role === "assistant"
-                    ? "flex flex-col gap-1 self-start border border-blue-100 bg-white text-left"
-                    : "flex flex-col gap-1 self-end border border-blue-200 bg-blue-100 text-right"
+                className={`max-w-[70%] rounded-xl px-4 py-2 shadow-sm ${
+                  isAssistant
+                    ? "self-start border border-blue-100 bg-white"
+                    : "self-end border border-blue-200 bg-blue-100"
                 }`}
               >
-                <span className="text-xs font-medium text-blue-500">
-                  {msg.role === "assistant" ? "🤖 어시스턴트" : msg.role === "system" ? "📎 시스템" : "😀 학생"}
+                <span className="mb-1 block text-xs font-semibold text-blue-500">
+                  {isAssistant ? "🤖 어시스턴트" : "🧒 학생"}
                 </span>
                 <div className="text-[15px] leading-relaxed text-slate-700">
                   <Markdown>{msg.content}</Markdown>
                 </div>
               </article>
-            ))}
-            <div ref={bottomRef} />
-          </div>
+            );
+          })}
+          <div ref={bottomRef} />
+        </div>
 
+        <section className="px-6 pb-4">
           <CodeDock messages={assistantMessages} />
-
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              void handleSend();
-            }}
-            className="sticky bottom-0 flex flex-col gap-3 rounded-2xl border border-blue-100 bg-white/90 p-4 shadow-sm"
-          >
-            <textarea
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="하고 싶은 말을 입력하세요 (Enter: 전송 / Shift+Enter: 줄바꿈)"
-              className="min-h-[120px] max-h-64 w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-400 outline-hidden"
-              disabled={loading}
-            />
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white shadow transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                📩 {loading ? "전송 중..." : "전송"}
-              </button>
-            </div>
-          </form>
         </section>
-      </div>
+      </main>
+
+      <footer className="sticky bottom-0 border-t border-blue-100 bg-white/90 px-6 py-3 shadow-[0_-4px_12px_rgba(15,23,42,0.05)]">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void handleSend();
+          }}
+          className="flex items-end gap-3"
+        >
+          <textarea
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="메시지를 입력하세요 (Enter: 전송 / Shift+Enter: 줄바꿈)"
+            className="h-24 flex-1 resize-none rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-400 outline-hidden"
+            disabled={loading}
+          />
+          <button
+            type="submit"
+            disabled={loading}
+            className="flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white shadow transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            📩 {loading ? "전송 중..." : "전송"}
+          </button>
+        </form>
+      </footer>
     </div>
   );
 }

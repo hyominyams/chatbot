@@ -14,7 +14,6 @@ import CodeDock from "@/components/CodeDock";
 import {
   getMessages,
   sendUserMessage,
-  getContext,
   summarizeThread,
   patchThread,
   listThreads,
@@ -45,10 +44,6 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const [loading, setLoading] = useState(false);
   const [initializing, setInitializing] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [summary, setSummary] = useState<string>("");
-  const [recent, setRecent] = useState<ChatMessage[]>([]);
-  const [contextLoading, setContextLoading] = useState(false);
-  const [contextError, setContextError] = useState<string | null>(null);
   const [summarizing, setSummarizing] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
@@ -86,27 +81,10 @@ export default function ChatView({ threadId }: ChatViewProps) {
     }
   }, [threadId]);
 
-  const fetchContext = useCallback(async () => {
-    if (!threadId) return;
-    setContextLoading(true);
-    setContextError(null);
-    try {
-      const { summary, recent } = await getContext(threadId, 12);
-      setSummary(summary);
-      setRecent(recent);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setContextError(message);
-    } finally {
-      setContextLoading(false);
-    }
-  }, [threadId]);
-
   useEffect(() => {
     setInitializing(true);
     void fetchMessages();
-    void fetchContext();
-  }, [fetchMessages, fetchContext]);
+  }, [fetchMessages]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -146,7 +124,6 @@ export default function ChatView({ threadId }: ChatViewProps) {
     try {
       await sendUserMessage(session.sessionId, threadId, content);
       await fetchMessages();
-      await fetchContext();
 
       if (!threadTitle || threadTitle === TITLE_PLACEHOLDER) {
         const newTitle = content.slice(0, 30);
@@ -184,7 +161,6 @@ export default function ChatView({ threadId }: ChatViewProps) {
     setSummarizing(true);
     try {
       await summarizeThread(threadId);
-      await fetchContext();
       alert("요약이 갱신되었습니다.");
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -210,52 +186,23 @@ export default function ChatView({ threadId }: ChatViewProps) {
   return (
     <div className="flex h-full flex-col">
       <header className="border-b border-slate-200 bg-white px-6 py-4">
-        <h1 className="text-xl font-semibold text-slate-900">{threadTitle}</h1>
-        <p className="text-xs text-slate-500">{session.klass} · {session.nick}</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-semibold text-slate-900">{threadTitle}</h1>
+            <p className="text-xs text-slate-500">{session.klass} · {session.nick}</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleSummarize}
+            disabled={summarizing}
+            className="rounded-lg bg-blue-400 px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {summarizing ? "요약 중..." : "요약 갱신"}
+          </button>
+        </div>
       </header>
 
       <div className="flex flex-1 flex-col gap-4 overflow-hidden bg-slate-50 p-6">
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-base font-semibold text-slate-900">요약</h2>
-            <button
-              onClick={handleSummarize}
-              disabled={summarizing}
-              className="rounded-lg bg-blue-400 px-3 py-1 text-sm font-semibold text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {summarizing ? "갱신 중..." : "요약 갱신"}
-            </button>
-          </div>
-          {contextLoading ? (
-            <p className="text-sm text-slate-500">요약을 불러오는 중...</p>
-          ) : contextError ? (
-            <p className="text-sm text-red-500">{contextError}</p>
-          ) : summary ? (
-            <Markdown>{summary}</Markdown>
-          ) : (
-            <p className="text-sm text-slate-500">요약이 없습니다. 버튼을 눌러 생성해 보세요.</p>
-          )}
-
-          {recent.length > 0 && (
-            <div className="mt-4 space-y-2">
-              <h3 className="text-sm font-semibold text-slate-700">최근 대화</h3>
-              <ul className="space-y-2">
-                {recent.map((item) => (
-                  <li
-                    key={item.id}
-                    className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-700"
-                  >
-                    <div className="mb-1 text-xs text-slate-500">
-                      {item.role === "assistant" ? "어시스턴트" : "학생"}
-                    </div>
-                    <div>{item.content}</div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </section>
-
         <section className="flex min-h-0 flex-1 flex-col gap-4">
           <div className="flex-1 space-y-4 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
             {initializing && <p className="text-sm text-slate-500">불러오는 중...</p>}

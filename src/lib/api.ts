@@ -2,6 +2,7 @@
   id: string;
   title: string;
   pinned?: boolean;
+  deleted_at?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -16,7 +17,7 @@ export type ChatMessage = {
 async function handleResponse<T>(response: Response): Promise<T> {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const message = typeof data?.error === "string" ? data.error : "요청이 실패했습니다.";
+    const message = typeof (data as any)?.error === "string" ? (data as any).error : "요청이 실패했습니다.";
     throw new Error(message);
   }
   return data as T;
@@ -32,9 +33,7 @@ export async function listThreads(
     nickname,
     limit: String(options.limit ?? 30),
   });
-  if (options.query) {
-    params.set("q", options.query);
-  }
+  if (options.query) params.set("q", options.query);
   const res = await fetch(`/api/threads?${params.toString()}`, { cache: "no-store" });
   return handleResponse<{ threads: ThreadSummary[] }>(res);
 }
@@ -96,4 +95,3 @@ export async function summarizeThread(threadId: string) {
   });
   return handleResponse<{ ok: boolean }>(res);
 }
-

@@ -18,9 +18,9 @@ export default function Sidebar() {
   const [klass, setKlass] = useState<string | null>(null);
   const [nick, setNick] = useState<string | null>(null);
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
 
   const activeThreadId = useMemo(() => {
     const parts = pathname?.split("/") ?? [];
@@ -32,12 +32,18 @@ export default function Sidebar() {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (!raw) return;
-      const parsed = JSON.parse(raw);
-      setSessionId(parsed?.sessionId ?? null);
-      setKlass(parsed?.klass ?? null);
-      setNick(parsed?.nick ?? null);
+      const stored = JSON.parse(raw) as {
+        sessionId?: string;
+        klass?: string;
+        nick?: string;
+        authed?: boolean;
+      };
+      if (!stored?.authed || !stored.sessionId) return;
+      setSessionId(stored.sessionId ?? null);
+      setKlass(stored.klass ?? null);
+      setNick(stored.nick ?? null);
     } catch (err) {
-      console.error("세션 정보를 불러오지 못했습니다.", err);
+      console.error(err);
     }
   }, []);
 
@@ -50,7 +56,7 @@ export default function Sidebar() {
         query: search.trim() || undefined,
         limit: 100,
       });
-      setThreads(items);
+      setThreads(items.filter((item) => !item.deleted_at));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
@@ -65,7 +71,7 @@ export default function Sidebar() {
 
   const handleNewThread = async () => {
     if (!sessionId) {
-      alert("로그인이 필요합니다.");
+      alert("먼저 로그인해 주세요.");
       return;
     }
     try {
@@ -79,7 +85,7 @@ export default function Sidebar() {
   };
 
   const grouped = useMemo(() => {
-    const pinned = threads.filter((thread) => Boolean(thread.pinned));
+    const pinned = threads.filter((thread) => thread.pinned);
     const regular = threads.filter((thread) => !thread.pinned);
     return { pinned, regular };
   }, [threads]);
@@ -96,55 +102,57 @@ export default function Sidebar() {
   );
 
   return (
-    <aside className="flex h-full w-72 flex-col gap-6 border-r border-gray-200 bg-gray-50 p-6">
-      <header>
-        <div className="text-lg font-semibold text-gray-800">ClassCoder</div>
-        <div className="text-xs text-gray-500">
-          {klass ? `${klass} · ${nick ?? ""}` : "로그인이 필요합니다"}
+    <aside className="flex h-full w-72 flex-col gap-5 border-r border-slate-200 bg-gray-50 p-6">
+      <header className="space-y-1">
+        <div className="text-lg font-semibold text-slate-900">ClassCoder</div>
+        <div className="text-xs text-slate-500">
+          {klass ? `${klass} · ${nick ?? ""}` : "로그인 필요"}
         </div>
       </header>
 
-      <div className="flex flex-col gap-3">
+      <div className="space-y-3">
         <input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="스레드 검색"
-          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
+          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
         />
         <button
+          type="button"
           onClick={handleNewThread}
-          className="w-full rounded-lg bg-blue-400 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-500"
+          className="w-full rounded-lg bg-blue-400 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-500"
         >
           새 채팅
         </button>
         <button
+          type="button"
           onClick={() => refreshThreads()}
-          className="w-full rounded-lg border border-gray-300 bg-white py-2 text-sm text-gray-600 transition-colors hover:bg-gray-100"
+          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-gray-100"
         >
           새로고침
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        {loading && <p className="text-xs text-gray-500">불러오는 중...</p>}
+      <div className="flex-1 space-y-4 overflow-y-auto">
+        {loading && <p className="text-xs text-slate-500">불러오는 중...</p>}
         {error && <p className="text-xs text-red-500">{error}</p>}
         {!loading && !error && threads.length === 0 && (
-          <p className="text-xs text-gray-500">스레드가 없습니다.</p>
+          <p className="text-xs text-slate-500">스레드가 없습니다.</p>
         )}
 
         <ThreadSection
           title="고정됨"
           threads={grouped.pinned}
-          activeThreadId={activeThreadId}
+          activeId={activeThreadId}
           formatter={formatter}
-          refreshThreads={refreshThreads}
+          refresh={refreshThreads}
         />
         <ThreadSection
           title="전체"
           threads={grouped.regular}
-          activeThreadId={activeThreadId}
+          activeId={activeThreadId}
           formatter={formatter}
-          refreshThreads={refreshThreads}
+          refresh={refreshThreads}
         />
       </div>
     </aside>
@@ -154,31 +162,28 @@ export default function Sidebar() {
 function ThreadSection({
   title,
   threads,
-  activeThreadId,
+  activeId,
   formatter,
-  refreshThreads,
+  refresh,
 }: {
   title: string;
   threads: ThreadSummary[];
-  activeThreadId: string | null;
+  activeId: string | null;
   formatter: Intl.DateTimeFormat;
-  refreshThreads: () => Promise<void>;
+  refresh: () => Promise<void>;
 }) {
   const router = useRouter();
 
-  if (threads.length === 0) {
-    return null;
-  }
+  if (threads.length === 0) return null;
 
   return (
-    <section className="mt-4 space-y-2">
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+    <section className="space-y-2">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
         {title}
       </h2>
       <ul className="space-y-2">
         {threads.map((thread) => {
-          const isActive = thread.id === activeThreadId;
-          const isPinned = Boolean(thread.pinned);
+          const isActive = thread.id === activeId;
           return (
             <li
               key={thread.id}
@@ -188,15 +193,15 @@ function ThreadSection({
                   : "border-transparent bg-white"
               }`}
             >
-              <div className="flex gap-3">
+              <div className="flex items-start gap-3">
                 <button
                   onClick={() => router.push(`/chat/${thread.id}`)}
                   className="flex-1 text-left"
                 >
-                  <div className="font-medium text-gray-800">
-                    {thread.title || "제목 없음"}
+                  <div className="font-medium text-slate-900">
+                    {thread.title?.trim() || "제목 없음"}
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-slate-500">
                     {formatter.format(new Date(thread.updated_at))}
                   </div>
                 </button>
@@ -204,30 +209,28 @@ function ThreadSection({
                   <button
                     onClick={async () => {
                       try {
-                        await patchThread(thread.id, { pinned: !isPinned });
-                        await refreshThreads();
+                        await patchThread(thread.id, { pinned: !thread.pinned });
+                        await refresh();
                       } catch (err) {
                         const message = err instanceof Error ? err.message : String(err);
                         alert(message);
                       }
                     }}
                     className={`rounded-md border px-2 py-1 text-xs transition-colors ${
-                      isPinned
+                      thread.pinned
                         ? "border-blue-400 bg-blue-100 text-blue-700"
-                        : "border-gray-300 bg-white text-gray-600 hover:bg-gray-100"
+                        : "border-slate-300 bg-white text-slate-600 hover:bg-gray-100"
                     }`}
                   >
-                    {isPinned ? "고정 해제" : "고정"}
+                    {thread.pinned ? "고정 해제" : "고정"}
                   </button>
                   <button
                     onClick={async () => {
                       if (!confirm("이 스레드를 삭제할까요?")) return;
                       try {
                         await patchThread(thread.id, { deleted: true });
-                        if (thread.id === activeThreadId) {
-                          router.push("/chat");
-                        }
-                        await refreshThreads();
+                        if (thread.id === activeId) router.push("/chat");
+                        await refresh();
                       } catch (err) {
                         const message = err instanceof Error ? err.message : String(err);
                         alert(message);

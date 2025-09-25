@@ -3,23 +3,9 @@ import Sidebar from "@/components/Sidebar";
 
 export default function ChatLayout({ children }: { children: ReactNode }) {
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "280px 1fr",
-        height: "100vh",
-        backgroundColor: "#0f172a",
-        color: "#e2e8f0",
-      }}
-    >
+    <div className="grid h-screen grid-cols-[18rem_1fr] bg-white text-slate-900">
       <Sidebar />
-      <div
-        style={{
-          borderLeft: "1px solid #1f2937",
-          padding: "16px",
-          overflow: "auto",
-        }}
-      >
+      <div className="flex flex-col overflow-hidden bg-white">
         {children}
       </div>
     </div>

@@ -2,7 +2,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { llm } from "@/lib/llm";
 
-type ChatMessage = {
+type ChatRecord = {
   role: string;
   content: string;
 };
@@ -35,58 +35,97 @@ const SYSTEM_PROMPT = [
   "* 코드에는 **간단한 주석** 포함.",
   "* 코드 아래에는 **실행/배포 순서 3~5단계**를 짧게 안내.",
 ].join("\n");
+
 export async function POST(req: NextRequest) {
-  let body: unknown;
+  let payload: unknown;
 
   try {
-    body = await req.json();
+    payload = await req.json();
   } catch {
     return NextResponse.json({ error: "잘못된 JSON 형식입니다." }, { status: 400 });
   }
 
   const sessionId =
-    typeof (body as { sessionId?: unknown }).sessionId === "string"
-      ? ((body as { sessionId?: string }).sessionId ?? "").trim()
+    typeof (payload as { sessionId?: unknown }).sessionId === "string"
+      ? ((payload as { sessionId?: string }).sessionId ?? "").trim()
+      : "";
+  const threadId =
+    typeof (payload as { threadId?: unknown }).threadId === "string"
+      ? ((payload as { threadId?: string }).threadId ?? "").trim()
       : "";
   const message =
-    typeof (body as { message?: unknown }).message === "string"
-      ? ((body as { message?: string }).message ?? "").trim()
+    typeof (payload as { message?: unknown }).message === "string"
+      ? ((payload as { message?: string }).message ?? "").trim()
       : "";
 
-  if (!sessionId || !message) {
+  if (!sessionId || !threadId || !message) {
     return NextResponse.json(
-      { error: "sessionId/message 필요" },
+      { error: "sessionId/threadId/message 필요" },
       { status: 400 }
     );
+  }
+
+  const [{ data: session, error: sessionError }, { data: thread, error: threadError }] =
+    await Promise.all([
+      supabaseAdmin
+        .from("sessions")
+        .select("class, nickname")
+        .eq("id", sessionId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("threads")
+        .select("class, nickname")
+        .eq("id", threadId)
+        .maybeSingle(),
+    ]);
+
+  if (sessionError || !session) {
+    return NextResponse.json({ error: "세션이 존재하지 않습니다." }, { status: 401 });
+  }
+
+  if (threadError || !thread) {
+    return NextResponse.json({ error: "스레드를 찾을 수 없습니다." }, { status: 400 });
+  }
+
+  if (thread.class !== session.class || thread.nickname !== session.nickname) {
+    return NextResponse.json({ error: "스레드 접근 권한이 없습니다." }, { status: 401 });
+  }
+
+  const { error: userInsertError } = await supabaseAdmin.from("messages").insert({
+    session_id: sessionId,
+    thread_id: threadId,
+    role: "user",
+    content: message,
+  });
+
+  if (userInsertError) {
+    return NextResponse.json({ error: userInsertError.message }, { status: 400 });
   }
 
   const [{ data: summaryRow }, { data: recentMessages, error: recentError }] =
     await Promise.all([
       supabaseAdmin
-        .from("summaries")
+        .from("thread_summaries")
         .select("summary")
-        .eq("session_id", sessionId)
+        .eq("thread_id", threadId)
         .maybeSingle(),
       supabaseAdmin
         .from("messages")
         .select("role, content")
-        .eq("session_id", sessionId)
+        .eq("thread_id", threadId)
         .order("id", { ascending: false })
         .limit(CONTEXT_N),
     ]);
 
   if (recentError) {
-    return NextResponse.json({ error: recentError.message }, { status: 500 });
+    return NextResponse.json({ error: recentError.message }, { status: 400 });
   }
 
   const recent = (recentMessages ?? []).reverse();
-
-  const summaryText = summaryRow?.summary
-    ? `\n[요약]\n${summaryRow.summary}\n`
-    : "";
+  const summaryText = summaryRow?.summary ? `\n[요약]\n${summaryRow.summary}\n` : "";
 
   const historyText = recent
-    .map((m: ChatMessage) =>
+    .map((m: ChatRecord) =>
       `${m.role === "assistant" ? "도우미" : m.role === "system" ? "시스템" : "학생"}: ${m.content}`
     )
     .join("\n");
@@ -115,16 +154,10 @@ export async function POST(req: NextRequest) {
 
     await supabaseAdmin.from("messages").insert({
       session_id: sessionId,
+      thread_id: threadId,
       role: "assistant",
       content,
     });
-
-    const summarizeUrl = new URL("/api/summarize", req.url);
-    void fetch(summarizeUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId }),
-    }).catch(() => {});
 
     return NextResponse.json({ content });
   } catch (error: unknown) {
@@ -137,8 +170,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: messageText }, { status: 500 });
   }
 }
-
-
-
-
-

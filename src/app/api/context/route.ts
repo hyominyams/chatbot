@@ -1,33 +1,41 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
+const DEFAULT_LIMIT = 12;
+
 export async function GET(req: NextRequest) {
-  const sessionId = req.nextUrl.searchParams.get("sessionId");
-  const n = Number(req.nextUrl.searchParams.get("n") || "12");
-  if (!sessionId) {
-    return NextResponse.json({ error: "sessionId 필요" }, { status: 400 });
+  const searchParams = req.nextUrl.searchParams;
+  const threadId = searchParams.get("threadId")?.trim();
+  const limitParam = searchParams.get("n")?.trim();
+
+  if (!threadId) {
+    return NextResponse.json({ error: "threadId 필요" }, { status: 400 });
   }
 
-  const [{ data: sum }, { data: msgs, error: msgErr }] = await Promise.all([
-    supabaseAdmin
-      .from("summaries")
-      .select("summary,last_msg_id")
-      .eq("session_id", sessionId)
-      .maybeSingle(),
-    supabaseAdmin
-      .from("messages")
-      .select("id,role,content,created_at")
-      .eq("session_id", sessionId)
-      .order("id", { ascending: false })
-      .limit(n),
-  ]);
+  const limit = Number(limitParam ?? DEFAULT_LIMIT);
+  const size = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : DEFAULT_LIMIT;
 
-  if (msgErr) {
-    return NextResponse.json({ error: msgErr.message }, { status: 500 });
+  const [{ data: summaryRow }, { data: messages, error: messagesError }] =
+    await Promise.all([
+      supabaseAdmin
+        .from("thread_summaries")
+        .select("summary")
+        .eq("thread_id", threadId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("messages")
+        .select("id, role, content, created_at")
+        .eq("thread_id", threadId)
+        .order("id", { ascending: false })
+        .limit(size),
+    ]);
+
+  if (messagesError) {
+    return NextResponse.json({ error: messagesError.message }, { status: 400 });
   }
 
   return NextResponse.json({
-    summary: sum?.summary || "",
-    recent: (msgs || []).reverse(),
+    summary: summaryRow?.summary ?? "",
+    recent: (messages ?? []).reverse(),
   });
 }

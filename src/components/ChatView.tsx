@@ -45,6 +45,8 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const [initializing, setInitializing] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [summarizing, setSummarizing] = useState(false);
+  const [pendingUserMessage, setPendingUserMessage] = useState<string | null>(null);
+  const [assistantTyping, setAssistantTyping] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -109,7 +111,8 @@ export default function ChatView({ threadId }: ChatViewProps) {
 
     const content = input.trim();
     setInput("");
-
+    setPendingUserMessage(content);
+    setAssistantTyping(true);
     setLoading(true);
     try {
       await sendUserMessage(session.sessionId, threadId, content);
@@ -129,6 +132,12 @@ export default function ChatView({ threadId }: ChatViewProps) {
       setMessages((prev) => [
         ...prev,
         {
+          id: Date.now(),
+          role: "user",
+          content,
+          created_at: new Date().toISOString(),
+        },
+        {
           id: Date.now() + 1,
           role: "assistant",
           content: `오류: ${message}`,
@@ -136,6 +145,8 @@ export default function ChatView({ threadId }: ChatViewProps) {
         },
       ]);
     } finally {
+      setPendingUserMessage(null);
+      setAssistantTyping(false);
       setLoading(false);
     }
   };
@@ -195,7 +206,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
       </header>
 
       <main className="flex flex-col overflow-hidden">
-        <div className="flex flex-col gap-4 flex-1 overflow-y-auto px-6 py-6">
+        <div className="mx-auto w-full max-w-3xl flex flex-col gap-3 flex-1 overflow-y-auto px-4 py-6">
           {initializing && <p className="text-sm text-slate-500">불러오는 중...</p>}
           {error && <p className="text-sm text-red-500">{error}</p>}
           {messages.length === 0 && !initializing && !error && (
@@ -206,13 +217,13 @@ export default function ChatView({ threadId }: ChatViewProps) {
             return (
               <article
                 key={msg.id}
-                className={`max-w-[70%] rounded-xl px-4 py-2 shadow-sm ${
+                className={`max-w-[65ch] sm:max-w-[70ch] rounded-xl px-4 py-2 shadow-sm transition ${
                   isAssistant
                     ? "self-start border border-blue-100 bg-white"
                     : "self-end border border-blue-200 bg-blue-100"
                 }`}
               >
-                <span className="mb-1 block text-xs font-semibold text-blue-500">
+                <span className="mb-0.5 block text-xs font-semibold text-blue-500">
                   {isAssistant ? "🤖 어시스턴트" : "🧒 학생"}
                 </span>
                 <div className="text-[15px] leading-relaxed text-slate-700">
@@ -221,28 +232,40 @@ export default function ChatView({ threadId }: ChatViewProps) {
               </article>
             );
           })}
+          {pendingUserMessage ? (
+            <article className="max-w-[65ch] sm:max-w-[70ch] self-end rounded-xl border border-blue-200 bg-blue-100 px-4 py-2 shadow-sm animate-pulse">
+              <span className="mb-0.5 block text-xs font-semibold text-blue-500">🧒 학생</span>
+              <div className="text-[15px] leading-relaxed text-slate-700">...</div>
+            </article>
+          ) : null}
+          {assistantTyping ? (
+            <article className="max-w-[65ch] sm:max-w-[70ch] self-start rounded-xl border border-blue-100 bg-white px-4 py-2 shadow-sm animate-pulse">
+              <span className="mb-0.5 block text-xs font-semibold text-blue-500">🤖 어시스턴트</span>
+              <div className="text-[15px] leading-relaxed text-slate-700">...</div>
+            </article>
+          ) : null}
           <div ref={bottomRef} />
         </div>
 
-        <section className="px-6 pb-4">
+        <section className="mx-auto w-full max-w-3xl px-4 pb-4">
           <CodeDock messages={assistantMessages} />
         </section>
       </main>
 
-      <footer className="sticky bottom-0 border-t border-blue-100 bg-white/90 px-6 py-3 shadow-[0_-4px_12px_rgba(15,23,42,0.05)]">
+      <footer className="sticky bottom-0 border-t border-blue-100 bg-white/90 px-4 py-3 shadow-[0_-4px_12px_rgba(15,23,42,0.05)]">
         <form
           onSubmit={(event) => {
             event.preventDefault();
             void handleSend();
           }}
-          className="flex items-end gap-3"
+          className="mx-auto flex w-full max-w-3xl items-end gap-3"
         >
           <textarea
             value={input}
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="메시지를 입력하세요 (Enter: 전송 / Shift+Enter: 줄바꿈)"
-            className="h-24 flex-1 resize-none rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-400 outline-hidden"
+            className="h-24 flex-1 resize-none rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 outline-hidden focus:(ring-2 ring-blue-400 outline-hidden)"
             disabled={loading}
           />
           <button

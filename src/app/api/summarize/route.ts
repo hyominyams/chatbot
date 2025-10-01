@@ -63,7 +63,8 @@ export async function POST(req: NextRequest) {
   const completion = await llm.chat.completions.create({
     model: "solar-pro2",
     messages: prompt,
-    temperature: 0.2,
+    temperature: 0.5,
+    max_output_tokens: 16384,
   });
 
   const summary = completion.choices[0]?.message?.content ?? "(요약 없음)";

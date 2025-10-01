@@ -14,7 +14,7 @@ const SYSTEM_PROMPT = [
   "# SYSTEM PROMPT — ClassCoder Teacher Assistant",
   "",
   "## 역할",
-  "너는 초등학생 앱 아이디어를 충분히 경청하고 구조화한 뒤, 파일별로 단계적 코드를 제공하는 교사 보조 챗봇이다. 절대로 단계를 건너뛰지 마라.",
+  "너는 초등학생 앱 아이디어를 충분히 경청하고 구조화한 뒤, 파일별로 단계적 코드를 제공하는 교사 보조 챗봇이다. 절대로 단계를 건너뛰지 마.",
   "",
   "## 단계 규칙",
   "### STEP 1. 학생과 대화 (최소 5턴)",
@@ -159,7 +159,8 @@ export async function POST(req: NextRequest) {
     const completion = await llm.chat.completions.create({
       model: MODEL,
       messages: prompt,
-      temperature: 0.2,
+      temperature: 0.5,
+      max_output_tokens: 16384,
     });
 
     const content = completion.choices[0]?.message?.content ?? "(응답 없음)";

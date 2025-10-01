@@ -160,7 +160,7 @@ export async function POST(req: NextRequest) {
       model: MODEL,
       messages: prompt,
       temperature: 0.5,
-      max_output_tokens: 16384,
+      max_tokens: 16384,
     });
 
     const content = completion.choices[0]?.message?.content ?? "(응답 없음)";

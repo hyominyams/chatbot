@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     model: "solar-pro2",
     messages: prompt,
     temperature: 0.5,
-    max_output_tokens: 16384,
+    max_tokens: 16384,
   });
 
   const summary = completion.choices[0]?.message?.content ?? "(요약 없음)";
